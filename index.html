@@ -70,17 +70,9 @@ label{font-size:13px;color:#475569;display:block;margin-bottom:5px}
   </div>
 </div>
 <div class="camera-panel" id="cameraPanel">
-  <div id="cameraPayBox" style="background:#fff;border-radius:12px;padding:16px;text-align:center">
-    <div style="font-size:32px">🔒</div>
-    <h3 style="margin:6px 0">Live Camera — ₹5</h3>
-    <p class="muted" style="margin:0 0 10px">Pay ₹5 once to unlock Live Camera for this browser session.</p>
-    <button class="btn" type="button" onclick="openLiveCameraPayment()">Pay ₹5 with Razorpay</button>
-    <button class="tool-btn" type="button" onclick="confirmLiveCameraPayment()">✅ I have completed payment</button>
-    <p class="small" style="margin:9px 0 0">After payment, return here and tap “I have completed payment”.</p>
-  </div>
-  <video id="cameraVideo" autoplay playsinline muted style="display:none"></video>
+  <video id="cameraVideo" autoplay playsinline muted></video>
   <canvas id="cameraCanvas" hidden></canvas>
-  <div class="camera-actions" id="cameraActions" style="display:none">
+  <div class="camera-actions">
     <button class="tool-btn" onclick="capturePhoto()">📸 Capture Photo</button>
     <button class="tool-btn secondary-btn" onclick="openPhoneCamera()">📱 Use Phone Camera</button>
     <button class="tool-btn secondary-btn" onclick="closeCamera()">Close</button>
@@ -149,10 +141,11 @@ label{font-size:13px;color:#475569;display:block;margin-bottom:5px}
 
 
 <div class="card" id="premiumCard" style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe">
-<h2>⭐ Live Camera Premium</h2>
-<p class="muted">Live Camera access costs <b>₹5</b>. Upload Image remains completely free.</p>
-<button class="btn" type="button" onclick="openLiveCameraPayment()">Unlock Live Camera — ₹5</button>
-<p class="small" style="text-align:center;margin:8px 0 0">Payment is handled by Razorpay.</p>
+<h2>⭐ FormFit Premium</h2>
+<p class="muted">Live Camera access — <b>₹5</b></p>
+<button class="btn" type="button" onclick="openPremiumPayment()">Pay ₹5 to Unlock Camera</button>
+<button class="tool-btn" type="button" onclick="confirmPaymentUnlock()">I have completed the ₹5 payment</button>
+<p id="paymentStatus" class="small" style="text-align:center;margin:8px 0 0">🔒 Camera is locked. After payment confirmation, access stays active for 5 minutes.</p>
 </div>
 
 <div class="card"><b>🔒 Privacy</b><p class="muted">Your image is processed in your browser in this version. It is not uploaded to a server.</p></div>
@@ -171,20 +164,40 @@ file.onchange=()=>{
   }
 };
 
-async function openCamera(){
-  cameraPanel.classList.add('active');
-
-  if(sessionStorage.getItem('formfit_live_camera_unlocked') !== '1'){
-    cameraPayBox.style.display='block';
-    cameraVideo.style.display='none';
-    cameraActions.style.display='none';
-    cameraStatus.textContent='Payment required to use Live Camera.';
+function isOwnerMode(){
+  return localStorage.getItem('formfit_owner_mode') === '1';
+}
+function hasCameraAccess(){
+  if(isOwnerMode()) return true;
+  const expires = Number(localStorage.getItem('formfit_camera_expires') || '0');
+  return expires > Date.now();
+}
+function updatePaymentStatus(){
+  const st=document.getElementById('paymentStatus');
+  if(!st) return;
+  if(isOwnerMode()){
+    st.textContent='👑 Owner mode — Live Camera is free for you.';
     return;
   }
-
-  cameraPayBox.style.display='none';
-  cameraVideo.style.display='block';
-  cameraActions.style.display='grid';
+  const expires=Number(localStorage.getItem('formfit_camera_expires') || '0');
+  const remaining=Math.max(0, expires-Date.now());
+  if(remaining>0){
+    const mins=Math.floor(remaining/60000);
+    const secs=Math.ceil((remaining%60000)/1000);
+    st.textContent='✅ Camera unlocked — '+mins+':'+String(secs).padStart(2,'0')+' remaining.';
+  }else{
+    localStorage.removeItem('formfit_camera_expires');
+    st.textContent='🔒 Camera is locked. Pay ₹5 to unlock for 5 minutes.';
+  }
+}
+async function openCamera(){
+  if(!hasCameraAccess()){
+    updatePaymentStatus();
+    alert('Live Camera access is locked. Complete the ₹5 payment first.');
+    document.getElementById('premiumCard').scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  cameraPanel.classList.add('active');
   cameraStatus.textContent='Starting camera...';
 
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
@@ -232,15 +245,6 @@ function closeCamera(){
   if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}
   cameraVideo.srcObject=null;
   cameraPanel.classList.remove('active');
-}
-
-function openLiveCameraPayment(){
-  window.open('https://rzp.io/rzp/IayNps3C','_blank','noopener,noreferrer');
-}
-
-function confirmLiveCameraPayment(){
-  sessionStorage.setItem('formfit_live_camera_unlocked','1');
-  openCamera();
 }
 
 function capturePhoto(){
@@ -384,6 +388,36 @@ async function pdfToJpg(){
 function fileToDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src;});}
 function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
-function openPremiumPayment(){ openLiveCameraPayment(); }
+function openPremiumPayment(){
+  window.open('https://rzp.io/rzp/IayNps3C', '_blank', 'noopener,noreferrer');
+}
+function confirmPaymentUnlock(){
+  const ok=confirm('Payment complete ho gaya hai? Payment ke baad camera 5 minutes ke liye unlock hoga.');
+  if(!ok)return;
+  localStorage.setItem('formfit_camera_expires', String(Date.now()+5*60*1000));
+  updatePaymentStatus();
+}
+function activateOwnerMode(){
+  // Convenience owner mode for the site owner. This is NOT secure authentication
+  // because this website is static; anyone who obtains the owner URL/code could use it.
+  localStorage.setItem('formfit_owner_mode','1');
+  updatePaymentStatus();
+}
+function resetPremiumForTesting(){
+  localStorage.removeItem('formfit_camera_expires');
+  localStorage.removeItem('formfit_owner_mode');
+  updatePaymentStatus();
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  updatePaymentStatus();
+  setInterval(updatePaymentStatus,1000);
+  // Owner access: open the site once with ?owner=FORMFIT_OWNER_2026
+  // and it will remain free on that browser.
+  const params=new URLSearchParams(location.search);
+  if(params.get('owner')==='FORMFIT_OWNER_2026'){
+    activateOwnerMode();
+    history.replaceState({},document.title,location.pathname+location.hash);
+  }
+});
 </script>
 </body></html>
