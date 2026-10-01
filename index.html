@@ -908,4 +908,215 @@ async function runOtherPdfToJpg(){
 }
 </script>
 
+
+<script id="pdf-tools-functional-fix">
+(function(){
+  function pdfStatus(id,msg){ const e=document.getElementById(id); if(e)e.textContent=msg; }
+  function getPdfLib(){ if(!window.pdfjsLib) throw new Error('PDF engine is still loading. Refresh once and try again.'); return window.pdfjsLib; }
+  function getJsPdf(){ if(!window.jspdf || !window.jspdf.jsPDF) throw new Error('PDF engine is still loading. Refresh once and try again.'); return window.jspdf.jsPDF; }
+
+  async function openPdf(inputId,password){
+    const input=document.getElementById(inputId);
+    if(!input || !input.files || !input.files[0]) throw new Error('Please select a PDF file.');
+    const bytes=new Uint8Array(await input.files[0].arrayBuffer());
+    try{
+      return await getPdfLib().getDocument({data:bytes,password:password || undefined}).promise;
+    }catch(e){
+      if(e && (e.name==='PasswordException' || e.code===1 || e.code===2)){
+        throw new Error(password ? 'Wrong password.' : 'This PDF is password protected. Enter its password.');
+      }
+      throw e;
+    }
+  }
+
+  async function renderPage(pdf,n,scale,rotation){
+    const page=await pdf.getPage(n);
+    const viewport=page.getViewport({scale:scale || 1.25,rotation:rotation || 0});
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.ceil(viewport.width);
+    canvas.height=Math.ceil(viewport.height);
+    const ctx=canvas.getContext('2d',{alpha:false});
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    await page.render({canvasContext:ctx,viewport}).promise;
+    return {canvas,width:canvas.width,height:canvas.height};
+  }
+
+  function newDocForItem(item, encrypted){
+    const jsPDF=getJsPdf();
+    const orientation=item.width>=item.height?'landscape':'portrait';
+    const opts={orientation,unit:'pt',format:[item.width,item.height],compress:true};
+    if(encrypted) opts.encryption=encrypted;
+    return new jsPDF(opts);
+  }
+
+  function addItem(doc,item,quality){
+    const data=item.canvas.toDataURL('image/jpeg',quality || 0.82);
+    doc.addImage(data,'JPEG',0,0,item.width,item.height,undefined,'FAST');
+  }
+
+  function makeDoc(items,quality,encrypted){
+    if(!items.length) throw new Error('No pages found.');
+    let doc=newDocForItem(items[0],encrypted);
+    addItem(doc,items[0],quality);
+    for(let i=1;i<items.length;i++){
+      const item=items[i];
+      doc.addPage([item.width,item.height],item.width>=item.height?'landscape':'portrait');
+      addItem(doc,item,quality);
+    }
+    return doc;
+  }
+
+  function parsePages(value,total){
+    const result=[];
+    for(const token of String(value||'').split(',')){
+      const s=token.trim();
+      if(!s) continue;
+      if(s.includes('-')){
+        const ab=s.split('-').map(x=>parseInt(x.trim(),10));
+        if(ab.length!==2 || !Number.isInteger(ab[0]) || !Number.isInteger(ab[1])) continue;
+        const a=Math.max(1,Math.min(ab[0],ab[1])), b=Math.min(total,Math.max(ab[0],ab[1]));
+        for(let i=a;i<=b;i++) if(!result.includes(i)) result.push(i);
+      }else{
+        const n=parseInt(s,10);
+        if(Number.isInteger(n) && n>=1 && n<=total && !result.includes(n)) result.push(n);
+      }
+    }
+    return result;
+  }
+
+  window.mergePdfFilesIntoOne=async function(){
+    try{
+      const files=[...(document.getElementById('mergePdfFiles')?.files||[])];
+      if(!files.length) throw new Error('Select at least one PDF.');
+      pdfStatus('mergePdfStatus','Merging PDFs...');
+      const all=[];
+      for(const file of files){
+        const pdf=await getPdfLib().getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+        for(let i=1;i<=pdf.numPages;i++) all.push(await renderPage(pdf,i,1.2,0));
+      }
+      makeDoc(all,.82).save('merged-pdf.pdf');
+      pdfStatus('mergePdfStatus','✅ Merged PDF downloaded.');
+    }catch(e){pdfStatus('mergePdfStatus','❌ '+e.message);}
+  };
+
+  window.splitPdfPages=async function(){
+    try{
+      const pdf=await openPdf('splitPdfFile');
+      const pages=parsePages(document.getElementById('splitPdfPages').value,pdf.numPages);
+      if(!pages.length) throw new Error('Enter pages like 1-3,5.');
+      pdfStatus('splitPdfStatus','Extracting pages...');
+      const items=[];
+      for(const n of pages) items.push(await renderPage(pdf,n,1.2,0));
+      makeDoc(items,.82).save('split-pages.pdf');
+      pdfStatus('splitPdfStatus','✅ Selected pages downloaded.');
+    }catch(e){pdfStatus('splitPdfStatus','❌ '+e.message);}
+  };
+
+  window.reorderPdfPages=async function(){
+    try{
+      const pdf=await openPdf('reorderPdfFile');
+      const pages=parsePages(document.getElementById('reorderPdfPages').value,pdf.numPages);
+      if(pages.length!==pdf.numPages) throw new Error('Enter every page exactly once, e.g. 3,1,2,4.');
+      const items=[];
+      for(const n of pages) items.push(await renderPage(pdf,n,1.2,0));
+      makeDoc(items,.82).save('reordered-pdf.pdf');
+      pdfStatus('reorderPdfStatus','✅ Reordered PDF downloaded.');
+    }catch(e){pdfStatus('reorderPdfStatus','❌ '+e.message);}
+  };
+
+  window.rotatePdfPages=async function(){
+    try{
+      const pdf=await openPdf('rotatePdfFile');
+      const deg=parseInt(document.getElementById('rotatePdfDegrees').value,10)||90;
+      pdfStatus('rotatePdfStatus','Rotating pages...');
+      const items=[];
+      for(let i=1;i<=pdf.numPages;i++) items.push(await renderPage(pdf,i,1.2,deg));
+      makeDoc(items,.82).save('rotated-pdf.pdf');
+      pdfStatus('rotatePdfStatus','✅ Rotated PDF downloaded.');
+    }catch(e){pdfStatus('rotatePdfStatus','❌ '+e.message);}
+  };
+
+  window.compressPdfFile=async function(){
+    try{
+      const pdf=await openPdf('compressPdfFile');
+      const q=parseFloat(document.getElementById('compressPdfLevel').value)||.65;
+      pdfStatus('compressPdfStatus','Compressing PDF...');
+      const items=[];
+      for(let i=1;i<=pdf.numPages;i++) items.push(await renderPage(pdf,i,0.9,0));
+      makeDoc(items,q).save('compressed-pdf.pdf');
+      pdfStatus('compressPdfStatus','✅ Compressed PDF downloaded.');
+    }catch(e){pdfStatus('compressPdfStatus','❌ '+e.message);}
+  };
+
+  window.lockPdfFile=async function(){
+    try{
+      const pass=document.getElementById('lockPdfPassword').value;
+      if(!pass) throw new Error('Enter a password.');
+      if(pass.length<4) throw new Error('Use at least 4 characters.');
+      const pdf=await openPdf('lockPdfFile');
+      pdfStatus('lockPdfStatus','Creating password-protected PDF...');
+      const items=[];
+      for(let i=1;i<=pdf.numPages;i++) items.push(await renderPage(pdf,i,1.2,0));
+      const owner=pass+'-'+Math.random().toString(36).slice(2,10);
+      const doc=makeDoc(items,.82,{userPassword:pass,ownerPassword:owner,userPermissions:['print']});
+      doc.save('locked-pdf.pdf');
+      pdfStatus('lockPdfStatus','✅ Locked PDF downloaded. Password protection applied.');
+    }catch(e){pdfStatus('lockPdfStatus','❌ '+e.message);}
+  };
+
+  window.unlockPdfFile=async function(){
+    try{
+      const pass=document.getElementById('unlockPdfPassword').value;
+      if(!pass) throw new Error('Enter the existing password.');
+      const pdf=await openPdf('unlockPdfFile',pass);
+      pdfStatus('unlockPdfStatus','Creating unlocked PDF...');
+      const items=[];
+      for(let i=1;i<=pdf.numPages;i++) items.push(await renderPage(pdf,i,1.2,0));
+      makeDoc(items,.82).save('unlocked-pdf.pdf');
+      pdfStatus('unlockPdfStatus','✅ Unlocked copy downloaded.');
+    }catch(e){pdfStatus('unlockPdfStatus','❌ '+e.message);}
+  };
+
+  window.pdfToJpgComplete=async function(){
+    try{
+      const pdf=await openPdf('pdfJpgFile2');
+      pdfStatus('pdfJpgStatus2','Converting pages...');
+      for(let i=1;i<=pdf.numPages;i++){
+        const item=await renderPage(pdf,i,1.5,0);
+        const a=document.createElement('a');
+        a.href=item.canvas.toDataURL('image/jpeg',.92);
+        a.download='page-'+i+'.jpg';
+        document.body.appendChild(a); a.click(); a.remove();
+        await new Promise(r=>setTimeout(r,180));
+      }
+      pdfStatus('pdfJpgStatus2','✅ '+pdf.numPages+' JPG image(s) downloaded.');
+    }catch(e){pdfStatus('pdfJpgStatus2','❌ '+e.message);}
+  };
+
+  window.imagesToPdfComplete=async function(){
+    try{
+      const files=[...(document.getElementById('imagesPdfFiles2')?.files||[])];
+      if(!files.length) throw new Error('Select at least one image.');
+      const items=[];
+      for(const file of files){
+        const data=await fileToDataURL(file);
+        const img=await loadImage(data);
+        const maxW=595.28,maxH=841.89;
+        const scale=Math.min(maxW/img.width,maxH/img.height,1);
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(img.width*scale));
+        canvas.height=Math.max(1,Math.round(img.height*scale));
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        items.push({canvas,width:canvas.width,height:canvas.height});
+      }
+      makeDoc(items,.9).save('images-to-pdf.pdf');
+      pdfStatus('imagesPdfStatus2','✅ Images converted to PDF.');
+    }catch(e){pdfStatus('imagesPdfStatus2','❌ '+e.message);}
+  };
+})();
+</script>
+
 </body></html>
