@@ -69,6 +69,49 @@ input,select{border-color:#cbd5e1;box-shadow:0 1px 2px rgba(15,23,42,.03)}input:
 h1, .hero h1 { letter-spacing:-.7px; }
 </style>
 
+
+<style id="pdf-accordion-fix">
+#pdfToolsSection .tool-panel{display:none!important;margin-top:12px}
+#pdfToolsSection .tool-panel.pdf-open{display:block!important}
+#pdfToolsSection .tools-grid{margin-bottom:8px}
+#pdfToolsSection .tool-card{cursor:pointer}
+</style>
+
+
+<style id="single-pdf-tool-style">
+#pdfToolsSection .pdf-main-toggle{
+  width:100%;
+  border:0;
+  border-radius:12px;
+  padding:15px 18px;
+  background:#111827;
+  color:#fff;
+  font-size:17px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  cursor:pointer;
+}
+#pdfToolsSection .pdf-main-toggle:active{transform:scale(.99)}
+#pdfToolsSection .pdf-tools-hidden{display:none}
+#pdfToolsSection .pdf-tools-hidden.pdf-visible{display:block}
+</style>
+
+
+<style id="screenshot-other-tools-style">
+#otherImagePdfTools .tool-card{cursor:default}
+.other-tool-panel{
+  display:none;
+  margin:10px 0 14px;
+  padding:12px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#fff;
+}
+.other-tool-panel.other-open{display:block}
+</style>
+
 </head>
 <body>
 
@@ -160,46 +203,48 @@ h1, .hero h1 { letter-spacing:-.7px; }
 <div class="card preview" id="result"><h2>Result</h2><img id="out"><p id="stats" class="muted"></p><button class="btn" onclick="download()">Download Again</button></div>
 
 <div class="card">
-<h2>🛠️ Other Tools</h2>
-<div class="tools-grid">
-<div class="tool-card">
-<h3>JPG → PDF</h3>
-<p>Convert one or multiple JPG images into a PDF.</p>
-<button class="tool-btn" onclick="toggleTool('jpgPdfPanel')">Open Tool</button>
-</div>
-<div class="tool-card">
-<h3>PDF → JPG</h3>
-<p>Convert PDF pages into JPG images in your browser.</p>
-<button class="tool-btn" onclick="toggleTool('pdfJpgPanel')">Open Tool</button>
-</div>
-</div>
-
-<div class="tool-panel" id="jpgPdfPanel">
-<label>Select JPG images</label>
-<input id="jpgFiles" type="file" accept="image/jpeg,image/jpg" multiple>
-<div id="jpgFilesList" class="file-list"></div>
-<button class="btn" onclick="jpgToPdf()">Convert JPG to PDF</button>
-<p class="small">Images are processed in your browser. No upload to a server.</p>
-</div>
-
-<div class="tool-panel" id="pdfJpgPanel">
-<label>Select PDF</label>
-<input id="pdfFile" type="file" accept="application/pdf">
-<div id="pdfFileList" class="file-list"></div>
-<button class="btn" onclick="pdfToJpg()">Convert PDF to JPG</button>
-<p class="small">Each PDF page will be rendered as a JPG image.</p>
-</div>
-</div>
 
 
+<div class="tools-grid" id="otherImagePdfTools">
+  <div class="tool-card">
+    <h3>JPG → PDF</h3>
+    <p>Convert one or multiple JPG images into a PDF.</p>
+    <button class="tool-btn" onclick="toggleOtherTool('jpgPdfPanel')">Open Tool</button>
+  </div>
 
+  <div class="tool-card">
+    <h3>PDF → JPG</h3>
+    <p>Convert PDF pages into JPG images in your browser.</p>
+    <button class="tool-btn" onclick="toggleOtherTool('pdfJpgPanel')">Open Tool</button>
+  </div>
+</div>
 
+<div class="other-tool-panel" id="jpgPdfPanel">
+  <label>Select JPG images</label>
+  <input id="otherJpgPdfFiles" type="file" accept="image/jpeg,image/jpg" multiple>
+  <button class="btn" onclick="runOtherJpgToPdf()">Convert JPG to PDF</button>
+  <p id="otherJpgPdfStatus" class="small muted"></p>
+  <p class="small muted">Images are processed in your browser. No upload to a server.</p>
+</div>
+
+<div class="other-tool-panel" id="pdfJpgPanel">
+  <label>Select PDF</label>
+  <input id="otherPdfJpgFile" type="file" accept="application/pdf">
+  <button class="btn" onclick="runOtherPdfToJpg()">Convert PDF to JPG</button>
+  <p id="otherPdfJpgStatus" class="small muted"></p>
+  <p class="small muted">PDF pages are converted in your browser.</p>
+</div>
 <!-- PDF_TOOLS_SECTION_START -->
 <section class="card" id="pdfToolsSection">
-  <h2>📄 PDF Tools — Complete Section</h2>
-  <p class="muted">PDF ko merge, split, reorder, rotate, compress, protect, unlock aur images mein convert karein. Processing browser mein hoti hai.</p>
+  <button type="button" class="pdf-main-toggle" onclick="togglePdfTools()">
+    📄 PDF Tools
+    <span id="pdfToolsArrow">▼</span>
+  </button>
 
-  <div class="tools-grid">
+  <div id="pdfToolsContent" class="pdf-tools-hidden">
+    <p class="muted" style="margin-top:12px">Merge, split, reorder, rotate, compress, protect, unlock aur images mein convert karein.</p>
+
+<div class="tools-grid">
     <div class="tool-card">
       <h3>🔗 Merge PDF</h3>
       <p>Multiple PDF files ko ek single PDF mein combine karein.</p>
@@ -248,11 +293,7 @@ h1, .hero h1 { letter-spacing:-.7px; }
       <button class="tool-btn" onclick="toggleTool('pdfJpgPanel2')">Open Tool</button>
     </div>
 
-    <div class="tool-card">
-      <h3>🧾 Images → PDF</h3>
-      <p>Multiple images ko ek PDF document mein combine karein.</p>
-      <button class="tool-btn" onclick="toggleTool('imagesPdfPanel2')">Open Tool</button>
-    </div>
+    
   </div>
 
   <div class="tool-panel" id="mergePdfPanel">
@@ -334,11 +375,7 @@ h1, .hero h1 { letter-spacing:-.7px; }
     <p id="pdfJpgStatus2" class="small muted"></p>
   </div>
 
-  <div class="tool-panel" id="imagesPdfPanel2">
-    <label>Select images</label>
-    <input id="imagesPdfFiles2" type="file" accept="image/*" multiple>
-    <button class="btn" onclick="imagesToPdfComplete()">Create PDF</button>
-    <p id="imagesPdfStatus2" class="small muted"></p>
+  
   </div>
 </section>
 <!-- PDF_TOOLS_SECTION_END -->
@@ -795,5 +832,80 @@ async function convertMultipleImagesToPdf(){
   </div>
 </section>
 <!-- SUGGEST_FEEDBACK_END -->
+
+
+<script id="pdf-accordion-js">
+function toggleTool(id){
+  const panel=document.getElementById(id);
+  if(!panel) return;
+  const wasOpen=panel.classList.contains('pdf-open');
+  document.querySelectorAll('#pdfToolsSection .tool-panel').forEach(p=>p.classList.remove('pdf-open'));
+  if(!wasOpen) panel.classList.add('pdf-open');
+}
+</script>
+
+
+<script id="single-pdf-tool-js">
+function togglePdfTools(){
+  const box=document.getElementById('pdfToolsContent');
+  const arrow=document.getElementById('pdfToolsArrow');
+  if(!box) return;
+  const open=box.classList.toggle('pdf-visible');
+  if(arrow) arrow.textContent=open?'▲':'▼';
+}
+</script>
+
+
+<script id="screenshot-other-tools-js">
+function toggleOtherTool(id){
+  const panel=document.getElementById(id);
+  if(!panel) return;
+  const wasOpen=panel.classList.contains('other-open');
+  document.querySelectorAll('.other-tool-panel').forEach(p=>p.classList.remove('other-open'));
+  if(!wasOpen) panel.classList.add('other-open');
+}
+
+async function runOtherJpgToPdf(){
+  const files=[...document.getElementById('otherJpgPdfFiles').files];
+  const status=document.getElementById('otherJpgPdfStatus');
+  if(!files.length){status.textContent='❌ Select at least one JPG image.';return;}
+  try{
+    const {jsPDF}=window.jspdf;
+    let doc=null;
+    for(const file of files){
+      const data=await fileToDataURL(file);
+      const img=await loadImage(data);
+      const maxW=595.28,maxH=841.89;
+      const scale=Math.min(maxW/img.width,maxH/img.height,1);
+      const w=img.width*scale,h=img.height*scale;
+      const orientation=w>=h?'landscape':'portrait';
+      if(!doc) doc=new jsPDF({orientation,unit:'pt',format:[w,h],compress:true});
+      else doc.addPage([w,h],orientation);
+      doc.addImage(data,'JPEG',0,0,w,h,undefined,'FAST');
+    }
+    doc.save('jpg-to-pdf.pdf');
+    status.textContent=`✅ ${files.length} image(s) converted to PDF.`;
+  }catch(e){status.textContent='❌ '+e.message;}
+}
+
+async function runOtherPdfToJpg(){
+  const file=document.getElementById('otherPdfJpgFile').files[0];
+  const status=document.getElementById('otherPdfJpgStatus');
+  if(!file){status.textContent='❌ Select a PDF.';return;}
+  try{
+    const pdf=await loadPdfBytes(new Uint8Array(await file.arrayBuffer()));
+    status.textContent='Converting pages...';
+    for(let i=1;i<=pdf.numPages;i++){
+      const r=await renderPdfPage(pdf,i,1.5);
+      const a=document.createElement('a');
+      a.href=r.canvas.toDataURL('image/jpeg',0.9);
+      a.download=`page-${i}.jpg`;
+      document.body.appendChild(a); a.click(); a.remove();
+      await new Promise(res=>setTimeout(res,120));
+    }
+    status.textContent=`✅ ${pdf.numPages} JPG image(s) created.`;
+  }catch(e){status.textContent='❌ '+e.message;}
+}
+</script>
 
 </body></html>
