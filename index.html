@@ -112,8 +112,29 @@ h1, .hero h1 { letter-spacing:-.7px; }
 .other-tool-panel.other-open{display:block}
 </style>
 
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111827">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Priyanshu's Photo Tools">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<style id="pwa-install-style">
+.install-app-btn{
+  position:fixed; right:14px; top:14px; z-index:9999;
+  border:0; border-radius:999px; padding:10px 15px;
+  font-weight:800; font-size:14px; cursor:pointer;
+  background:#111827; color:#fff; box-shadow:0 6px 18px rgba(0,0,0,.22);
+}
+.install-app-btn:active{transform:scale(.97)}
+@media(max-width:520px){.install-app-btn{right:10px;top:10px;padding:9px 12px;font-size:13px}}
+</style>
 </head>
 <body>
+
+<button id="installAppBtn" class="install-app-btn" type="button" style="display:none;">📱 Install App</button>
 
 <header class="site-brand-header">
   <div class="brand-wrap">
@@ -1119,4 +1140,40 @@ async function runOtherPdfToJpg(){
 })();
 </script>
 
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+
+<script id="pwa-install-script">
+let deferredInstallPrompt = null;
+const installAppBtn = document.getElementById('installAppBtn');
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  if (installAppBtn) installAppBtn.style.display = 'block';
+});
+
+if (installAppBtn) {
+  installAppBtn.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) {
+      alert('If Install App is not available yet, open this website in Chrome over HTTPS and use Chrome menu → Add to Home screen.');
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installAppBtn.style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  if (installAppBtn) installAppBtn.style.display = 'none';
+});
+</script>
 </body></html>
