@@ -24,14 +24,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Priyanshu's Photo Tools","url":"https://priyanshuy031-crypto.github.io/Formfit/","applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"INR"},"description":"Free online photo resizer, image compressor and PDF tools that run entirely in your browser."}</script>
 <script>
-/* Runs before first paint: restore theme, and skip the welcome pop-up for returning visitors. */
+/* Runs before first paint: restore theme, and skip the welcome pop-up if already shown in this visit. */
 (function(){
   var d=document.documentElement;
   d.classList.add('js');
   try{
     var t=localStorage.getItem('pt_theme');
     if(t==='light'||t==='dark')d.setAttribute('data-theme',t);
-    if(localStorage.getItem('pt_welcomed')==='1')d.classList.add('seen-welcome');
+  }catch(e){}
+  try{
+    /* once per visit: shown when the site is opened, not again on refresh in the same tab */
+    if(sessionStorage.getItem('pt_welcomed')==='1')d.classList.add('seen-welcome');
   }catch(e){}
 })();
 </script>
@@ -634,7 +637,7 @@ themeBtn.addEventListener('click',()=>{
 });
 paintTheme();
 
-/* ================= Welcome pop-up (once) ================= */
+/* ================= Welcome pop-up (once per visit) ================= */
 (function(){
   const overlay=$('welcomeOverlay');
   if(!overlay)return;
@@ -647,7 +650,7 @@ paintTheme();
   function close(){
     if(overlay.classList.contains('welcome-hidden'))return;
     overlay.classList.add('welcome-hidden');
-    store.set('pt_welcomed','1');
+    try{sessionStorage.setItem('pt_welcomed','1')}catch(e){}
     document.body.style.overflow='';
     try{if(main)main.inert=false}catch(e){}
     document.removeEventListener('keydown',onKey);
